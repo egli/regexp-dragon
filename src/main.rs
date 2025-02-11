@@ -49,6 +49,7 @@ enum AST {
     Any,
     Concat(Box<AST>, Box<AST>),
     ZeroOrMore(Box<AST>),
+    OneOrMore(Box<AST>),
     Either(Box<AST>, Box<AST>),
 }
 
@@ -131,6 +132,13 @@ impl NFA {
             AST::ZeroOrMore(ast) => {
                 let fragment = self.add_fragment(ast);
                 self.add_kleene(&fragment)
+            }
+
+            AST::OneOrMore(ast) => {
+                let one = self.add_fragment(ast);
+                let fragment = self.add_fragment(ast);
+                let kleene = self.add_kleene(&fragment);
+                self.add_concatenation(&one, &kleene)
             }
             AST::Either(ast1, ast2) => {
                 let r1 = self.add_fragment(ast1);
@@ -237,7 +245,8 @@ pub fn nfa_dot(nfa: &NFA) -> String {
 fn main() {
     //    let ast = AST::Concat(Box::new(AST::Character('a')), Box::new(AST::Character('b')));
     //    let ast = AST::Either(Box::new(AST::Character('a')), Box::new(AST::Character('b')));
-    let ast = AST::ZeroOrMore(Box::new(AST::Either(
+    // let ast = AST::ZeroOrMore(Box::new(AST::Either(
+    let ast = AST::OneOrMore(Box::new(AST::Either(
         Box::new(AST::Character('a')),
         Box::new(AST::Any),
     )));
@@ -287,6 +296,21 @@ mod tests {
         let ast = AST::ZeroOrMore(Box::new(AST::Character('a')));
         let nfa = NFA::from(&ast);
         assert!(nfa.accepts(""));
+        assert!(nfa.accepts("a"));
+        assert!(nfa.accepts("aa"));
+        assert!(nfa.accepts("aaaaa"));
+        assert!(!nfa.accepts("b"));
+        assert!(!nfa.accepts("ba"));
+        assert!(!nfa.accepts("ab"));
+        assert!(!nfa.accepts("c"));
+        assert!(!nfa.accepts("abc"));
+    }
+
+    #[test]
+    fn one_or_more() {
+        let ast = AST::OneOrMore(Box::new(AST::Character('a')));
+        let nfa = NFA::from(&ast);
+        assert!(!nfa.accepts(""));
         assert!(nfa.accepts("a"));
         assert!(nfa.accepts("aa"));
         assert!(nfa.accepts("aaaaa"));
