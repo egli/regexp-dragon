@@ -49,6 +49,7 @@ enum AST {
     Any,
     Concat(Box<AST>, Box<AST>),
     ZeroOrMore(Box<AST>),
+    Optional(Box<AST>),
     OneOrMore(Box<AST>),
     Either(Box<AST>, Box<AST>),
 }
@@ -120,6 +121,14 @@ impl NFA {
         Fragment { start, end }
     }
 
+    fn add_optional(&mut self, r: &Fragment) -> Fragment {
+        self.add_epsilon(r.start, r.end);
+        Fragment {
+            start: r.start,
+            end: r.end,
+        }
+    }
+
     fn add_fragment(&mut self, ast: &AST) -> Fragment {
         match ast {
             AST::Character(c) => self.add_char(*c, None),
@@ -133,7 +142,10 @@ impl NFA {
                 let fragment = self.add_fragment(ast);
                 self.add_kleene(&fragment)
             }
-
+            AST::Optional(ast) => {
+                let fragment = self.add_fragment(ast);
+                self.add_optional(&fragment)
+	    },
             AST::OneOrMore(ast) => {
                 let one = self.add_fragment(ast);
                 let fragment = self.add_fragment(ast);
@@ -337,5 +349,23 @@ mod tests {
         );
         let nfa = NFA::from(&ast);
         assert!(nfa.accepts("abb"));
+    }
+
+    #[test]
+    fn optional() {
+        let ast = AST::Concat(
+	    Box::new(
+		AST::Optional(
+		    Box::new(AST::Concat(
+			Box::new(AST::Character('a')),
+			Box::new(AST::Any),
+		    )))),
+            Box::new(AST::Character('b')));
+        let nfa = NFA::from(&ast);
+        assert!(nfa.accepts("acb"));
+        assert!(nfa.accepts("axb"));
+        assert!(nfa.accepts("b"));
+        assert!(!nfa.accepts("c"));
+        assert!(!nfa.accepts("bbb"));
     }
 }
