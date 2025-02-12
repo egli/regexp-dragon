@@ -191,7 +191,12 @@ impl NFA {
         let mut next_states = self.epsilon_closure(&HashSet::from([self.start]));
         let mut chars = input.chars();
         while let Some(c) = chars.next() {
-            next_states = self.move_state(&next_states, &Transition::Character(c));
+            let reachable_via_character = self.move_state(&next_states, &Transition::Character(c));
+            let reachable_via_any = self.move_state(&next_states, &Transition::Any);
+            next_states = reachable_via_character
+                .union(&reachable_via_any)
+                .cloned()
+                .collect();
             next_states = self.epsilon_closure(&next_states);
         }
         next_states
@@ -321,10 +326,16 @@ mod tests {
         assert!(!nfa.accepts("abc"));
     }
 
-    // #[test]
-    // fn any() {
-    //     let ast = AST::Concat(Box::new(AST::Concat(Box::new(AST::Character('a')), Box::new(AST::Any))), Box::new(AST::Character('b')));
-    //     let nfa = NFA::from(&ast);
-    //     assert!(nfa.accepts("abb"));
-    // }
+    #[test]
+    fn any() {
+        let ast = AST::Concat(
+            Box::new(AST::Concat(
+                Box::new(AST::Character('a')),
+                Box::new(AST::Any),
+            )),
+            Box::new(AST::Character('b')),
+        );
+        let nfa = NFA::from(&ast);
+        assert!(nfa.accepts("abb"));
+    }
 }
