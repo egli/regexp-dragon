@@ -81,7 +81,7 @@ impl NFA {
     fn add_epsilon(&mut self, start: StateId, end: StateId) -> Fragment {
         self.epsilon_transitions
             .entry(start)
-            .or_insert(HashSet::new())
+            .or_default()
             .insert(end);
         Fragment { start, end }
     }
@@ -183,7 +183,7 @@ impl NFA {
         closure
     }
 
-    fn move_state(&self, states: &HashSet<StateId>, transition: &Transition) -> HashSet<StateId> {
+    fn move_state(&self, states: &HashSet<StateId>, transition: Transition) -> HashSet<StateId> {
         let mut next_states = HashSet::new();
 
         for from in states {
@@ -201,10 +201,9 @@ impl NFA {
      */
     pub fn accepts(&self, input: &str) -> bool {
         let mut next_states = self.epsilon_closure(&HashSet::from([self.start]));
-        let mut chars = input.chars();
-        while let Some(c) = chars.next() {
-            let reachable_via_character = self.move_state(&next_states, &Transition::Character(c));
-            let reachable_via_any = self.move_state(&next_states, &Transition::Any);
+        for c in input.chars() {
+            let reachable_via_character = self.move_state(&next_states, Transition::Character(c));
+            let reachable_via_any = self.move_state(&next_states, Transition::Any);
             next_states = reachable_via_character
                 .union(&reachable_via_any)
                 .cloned()
