@@ -6,7 +6,7 @@ This project implements a very simple regular expression engine from
 scratch, exploring core concepts of automata theory and pattern
 matching.
 
-** Features
+* Features
 - creation of an NFA from a regular expression AST
   ([[https://en.wikipedia.org/wiki/Thompson%27s_construction][Thompson's Construction Algorithm]])
 - implementation of all basic pattern matching operations:
@@ -14,13 +14,13 @@ matching.
   - Alternation (|)
   - Kleene star (*)
 
-** Implementation Details
+* Implementation Details
 - The NFA is constructed from a simple AST
 - The patterns are matched using a simulation of the NFA, basically
   implementing Algorithm 3.22 "Simulating an NFA" from the Dragon book
 - For simplicity the NFA is *not* converted into a DFA
 
-** Usage Examples
+* Usage Examples
 #+begin_src shell
   # run the tests
   cargo test
@@ -33,10 +33,10 @@ NFAs can also be displayed using ~dot~ from graphviz:
   just dot
 #+end_src
 
-** License
+* License
 [[https://www.gnu.org/licenses/gpl.txt][GPLv3]]
 
-** References
+* References
 - [[https://en.wikipedia.org/wiki/Compilers:_Principles,_Techniques,_and_Tools][Compilers: Principles, Techniques, and Tools]], Second Edition
 - [[https://comp590-19s.github.io/docs/ps06-thegrep-nfa-v2.pdf][NFA Construction and Simulation in thegrep]], a very interesting
   assignment to a course named "[[https://comp590-19s.github.io/][Little languages]]"
