@@ -12,6 +12,9 @@ matching.
   - Concatenation
   - Alternation (|)
   - Kleene star (*)
+- extended pattern matching operations based on above
+  - one or more (+)
+  - zero or one (?)
 
 ** Implementation Details
 - The NFA is constructed from a simple AST
