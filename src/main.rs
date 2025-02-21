@@ -1,10 +1,21 @@
+//! Very simple regular expression engine along the lines of chapter 3
+//! of the Dragon book
+//!
+//! A Nondeterministic Finite Automata (NFA) is constructed from an
+//! abstract syntax tree (AST). To determine whether a given string
+//! matches the regular expression we walk the NFA and check if any of
+//! the reachable states is an accepting state
 use std::collections::{HashMap, HashSet, VecDeque};
 
-// Some dummy data to put into an accepting state
+/// A dummy type to put some data to put into an accepting state
 type Translation = usize;
 
+/// Reference to a state in the [NFA] states vector
 type StateId = usize;
 
+/// A state in the [NFA]
+///
+/// An accepting state contains a [Translation]
 #[derive(Debug, Default)]
 struct State {
     translation: Option<Translation>,
@@ -21,6 +32,7 @@ enum Boundary {
     None,
 }
 
+/// An transition between two [States](State) in the [NFA]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 enum Transition {
     Character(char),
@@ -30,6 +42,14 @@ enum Transition {
     Epsilon,
 }
 
+/// An NFA consisting of a set of states and transitions between them
+///
+/// Basically an implementation of the data structure laid out in
+/// chapter 3 of the dragon book. `transitions` can only contain one
+/// transition starting from a state for a type of transition, whereas
+/// there can be any number of epsilon transitions originating from a
+/// state. That is why `epsilon_transitions` contains a set of states
+/// for a given start state
 #[derive(Debug)]
 pub struct NFA {
     states: Vec<State>,
@@ -38,12 +58,16 @@ pub struct NFA {
     epsilon_transitions: HashMap<StateId, HashSet<StateId>>,
 }
 
+/// A fragment of an [AST] with a `start` and `end` state
+///
+/// Used to construct an NFA from smaller parts
 #[derive(Debug)]
 struct Fragment {
     start: StateId,
     end: StateId,
 }
 
+/// An abstract syntax tree
 enum AST {
     Character(char),
     String(String),
@@ -71,6 +95,7 @@ impl NFA {
         idx
     }
 
+    /// Add a character transition to the NFA
     fn add_char(&mut self, c: char, translation: Option<Translation>) -> Fragment {
         let start = self.add_state(State { translation: None });
         let end = self.add_state(State { translation });
@@ -79,6 +104,7 @@ impl NFA {
         Fragment { start, end }
     }
 
+    /// Add a sequence of character transitions to the NFA
     fn add_string(&mut self, s: &str, translation: Option<Translation>) -> Fragment {
         let start = self.add_state(State { translation: None });
         let mut prev = start;
@@ -93,6 +119,7 @@ impl NFA {
         Fragment { start, end }
     }
 
+    /// Add an epsilon transition to the NFA
     fn add_epsilon(&mut self, start: StateId, end: StateId) -> Fragment {
         self.epsilon_transitions
             .entry(start)
@@ -101,6 +128,7 @@ impl NFA {
         Fragment { start, end }
     }
 
+    /// Add an "any" transition to the NFA
     fn add_any(&mut self, translation: Option<Translation>) -> Fragment {
         let start = self.add_state(State { translation: None });
         let end = self.add_state(State { translation });
@@ -108,6 +136,7 @@ impl NFA {
         Fragment { start, end }
     }
 
+    /// Combine two NFAs into the union of both
     fn add_union(&mut self, r1: &Fragment, r2: &Fragment) -> Fragment {
         let start = self.add_state(State { translation: None });
         let end = self.add_state(State { translation: None });
@@ -118,6 +147,7 @@ impl NFA {
         Fragment { start, end }
     }
 
+    /// Combine two NFAs into the concatenation of both
     fn add_concatenation(&mut self, r1: &Fragment, r2: &Fragment) -> Fragment {
         self.add_epsilon(r1.end, r2.start);
         Fragment {
@@ -126,6 +156,7 @@ impl NFA {
         }
     }
 
+    /// Wrap an NFA so that it can be repeated zero or many times
     fn add_kleene(&mut self, r: &Fragment) -> Fragment {
         let start = self.add_state(State { translation: None });
         let end = self.add_state(State { translation: None });
@@ -136,6 +167,7 @@ impl NFA {
         Fragment { start, end }
     }
 
+    /// Wrap an NFA so that it is optional
     fn add_optional(&mut self, r: &Fragment) -> Fragment {
         self.add_epsilon(r.start, r.end);
         Fragment {
@@ -176,6 +208,7 @@ impl NFA {
         }
     }
 
+    /// Create an NFA from an abstract syntax tree `ast`
     fn from(ast: &AST) -> NFA {
         let mut nfa = NFA::new();
         let body = nfa.add_fragment(ast);
@@ -184,6 +217,8 @@ impl NFA {
         nfa
     }
 
+    /// Return all states that are reachable from a set of `states`
+    /// via epsilon stransitions
     fn epsilon_closure(&self, states: &HashSet<StateId>) -> HashSet<StateId> {
         let mut closure: HashSet<StateId> = states.clone();
         let mut queue = VecDeque::from(states.iter().cloned().collect::<Vec<_>>());
@@ -199,6 +234,8 @@ impl NFA {
         closure
     }
 
+    /// Return all states that are directly reachable from the a set
+    /// of `states` via the `transition`.
     fn move_state(&self, states: &HashSet<StateId>, transition: Transition) -> HashSet<StateId> {
         let mut next_states = HashSet::new();
 
@@ -211,10 +248,11 @@ impl NFA {
         next_states
     }
 
-    /**
-     * Given an input string, simulate the NFA to determine if the
-     * input is accepted by the input string.
-     */
+
+    /// Simulate the NFA
+    ///
+    /// Given an input string, simulate the NFA to determine if the
+    /// input is accepted by the input string.
     pub fn accepts(&self, input: &str) -> bool {
         let mut next_states = self.epsilon_closure(&HashSet::from([self.start]));
         for c in input.chars() {
