@@ -46,6 +46,7 @@ struct Fragment {
 
 enum AST {
     Character(char),
+    String(String),
     Any,
     Concat(Box<AST>, Box<AST>),
     ZeroOrMore(Box<AST>),
@@ -75,6 +76,20 @@ impl NFA {
         let end = self.add_state(State { translation });
         self.transitions
             .insert((start, Transition::Character(c)), end);
+        Fragment { start, end }
+    }
+
+    fn add_string(&mut self, s: &str, translation: Option<Translation>) -> Fragment {
+        let start = self.add_state(State { translation: None });
+        let mut prev = start;
+        let mut end = start;
+        for c in s.chars() {
+            end = self.add_state(State { translation: None });
+            self.transitions
+                .insert((prev, Transition::Character(c)), end);
+            prev = end;
+        }
+	self.states[end].translation = translation;
         Fragment { start, end }
     }
 
@@ -132,6 +147,7 @@ impl NFA {
     fn add_fragment(&mut self, ast: &AST) -> Fragment {
         match ast {
             AST::Character(c) => self.add_char(*c, None),
+            AST::String(s) => self.add_string(s, None),
             AST::Any => self.add_any(None),
             AST::Concat(ast1, ast2) => {
                 let r1 = self.add_fragment(ast1);
@@ -145,7 +161,7 @@ impl NFA {
             AST::Optional(ast) => {
                 let fragment = self.add_fragment(ast);
                 self.add_optional(&fragment)
-	    },
+            }
             AST::OneOrMore(ast) => {
                 let one = self.add_fragment(ast);
                 let fragment = self.add_fragment(ast);
@@ -262,10 +278,17 @@ fn main() {
     //    let ast = AST::Concat(Box::new(AST::Character('a')), Box::new(AST::Character('b')));
     //    let ast = AST::Either(Box::new(AST::Character('a')), Box::new(AST::Character('b')));
     // let ast = AST::ZeroOrMore(Box::new(AST::Either(
-    let ast = AST::OneOrMore(Box::new(AST::Either(
-        Box::new(AST::Character('a')),
-        Box::new(AST::Any),
-    )));
+    // let ast = AST::OneOrMore(Box::new(AST::Either(
+    //     Box::new(AST::Character('a')),
+    //     Box::new(AST::Any),
+    // )));
+    let ast = AST::Concat(
+        Box::new(AST::Concat(
+            Box::new(AST::OneOrMore(Box::new(AST::Character('(')))),
+            Box::new(AST::String("hello".to_string())),
+        )),
+        Box::new(AST::OneOrMore(Box::new(AST::Character(')')))),
+    );
     //    let ast = AST::ZeroOrMore(Box::new(AST::Character('a')));
     let nfa = NFA::from(&ast);
     let dot = nfa_dot(&nfa);
@@ -353,18 +376,36 @@ mod tests {
     #[test]
     fn optional() {
         let ast = AST::Concat(
-	    Box::new(
-		AST::Optional(
-		    Box::new(AST::Concat(
-			Box::new(AST::Character('a')),
-			Box::new(AST::Any),
-		    )))),
-            Box::new(AST::Character('b')));
+            Box::new(AST::Optional(Box::new(AST::Concat(
+                Box::new(AST::Character('a')),
+                Box::new(AST::Any),
+            )))),
+            Box::new(AST::Character('b')),
+        );
         let nfa = NFA::from(&ast);
         assert!(nfa.accepts("acb"));
         assert!(nfa.accepts("axb"));
         assert!(nfa.accepts("b"));
         assert!(!nfa.accepts("c"));
         assert!(!nfa.accepts("bbb"));
+    }
+
+    #[test]
+    fn string() {
+        let ast = AST::Concat(
+            Box::new(AST::Concat(
+                Box::new(AST::OneOrMore(Box::new(AST::Character('(')))),
+                Box::new(AST::String("hello".to_string())),
+            )),
+            Box::new(AST::OneOrMore(Box::new(AST::Character(')')))),
+        );
+        let nfa = NFA::from(&ast);
+        assert!(nfa.accepts("(hello)"));
+        assert!(nfa.accepts("(((((hello)))"));
+        assert!(!nfa.accepts("hello"));
+        assert!(!nfa.accepts("(hello"));
+        assert!(!nfa.accepts("hello)"));
+        assert!(!nfa.accepts("()"));
+        assert!(!nfa.accepts("(helo)"));
     }
 }
