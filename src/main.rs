@@ -89,7 +89,7 @@ impl NFA {
                 .insert((prev, Transition::Character(c)), end);
             prev = end;
         }
-	self.states[end].translation = translation;
+        self.states[end].translation = translation;
         Fragment { start, end }
     }
 
